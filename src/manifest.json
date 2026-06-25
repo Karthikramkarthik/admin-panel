@@ -1,0 +1,21 @@
+{
+  "name": "Stock Management System",
+  "short_name": "StockManager",
+  "theme_color": "#6366f1",
+  "background_color": "#0b0f19",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "assets/logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "assets/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
