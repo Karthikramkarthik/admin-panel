@@ -130,7 +130,7 @@ import { LoaderComponent } from '../loader/loader.component';
                   <div class="py-3">
                     <!-- Icon or Image preview depending on type -->
                     <div class="file-preview-icon mb-2">
-                      <img *ngIf="isImage(file.file_name)" [src]="imageBaseUrl + file.file_path" class="w-100 object-fit-cover rounded border" style="height: 80px;">
+                      <img *ngIf="isImage(file.file_name)" [src]="imageBaseUrl + file.file_path" (error)="handleImgError($event)" class="w-100 object-fit-cover rounded border" style="height: 80px;">
                       <i *ngIf="!isImage(file.file_name)" class="fas fs-1 text-secondary" [class.fa-file-pdf]="file.file_name.endsWith('.pdf')" [class.fa-file-excel]="file.file_name.endsWith('.xlsx') || file.file_name.endsWith('.csv')" [class.fa-file-lines]="!file.file_name.endsWith('.pdf') && !file.file_name.endsWith('.xlsx') && !file.file_name.endsWith('.csv')"></i>
                     </div>
                     
@@ -527,5 +527,9 @@ export class FileManagerComponent implements OnInit {
   isImage(filename: string): boolean {
     const ext = filename.split('.').pop()?.toLowerCase() || '';
     return ['png', 'jpg', 'jpeg', 'gif', 'bmp'].includes(ext);
+  }
+
+  handleImgError(event: any) {
+    event.target.src = 'assets/placeholder.png';
   }
 }

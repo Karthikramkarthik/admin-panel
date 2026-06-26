@@ -136,7 +136,7 @@ import { environment } from '../../../environments/environment';
                         
                         <!-- Preview image -->
                         <div class="slot-preview-box mb-2 border rounded overflow-hidden position-relative bg-light" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                          <img *ngIf="getImagePath('front')" [src]="getImagePath('front')" alt="Front View" class="w-100 h-100 object-fit-cover">
+                          <img *ngIf="getImagePath('front')" [src]="getImagePath('front')" (error)="handleImgError($event)" alt="Front View" class="w-100 h-100 object-fit-cover">
                           <i *ngIf="!getImagePath('front')" class="fas fa-image fs-1 text-muted opacity-25"></i>
                           <button type="button" *ngIf="getImagePath('front')" (click)="clearImageSlot('front')" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
                             <i class="fas fa-times" style="font-size: 0.7rem;"></i>
@@ -163,7 +163,7 @@ import { environment } from '../../../environments/environment';
                         
                         <!-- Preview image -->
                         <div class="slot-preview-box mb-2 border rounded overflow-hidden position-relative bg-light" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                          <img *ngIf="getImagePath('back')" [src]="getImagePath('back')" alt="Back View" class="w-100 h-100 object-fit-cover">
+                          <img *ngIf="getImagePath('back')" [src]="getImagePath('back')" (error)="handleImgError($event)" alt="Back View" class="w-100 h-100 object-fit-cover">
                           <i *ngIf="!getImagePath('back')" class="fas fa-image fs-1 text-muted opacity-25"></i>
                           <button type="button" *ngIf="getImagePath('back')" (click)="clearImageSlot('back')" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
                             <i class="fas fa-times" style="font-size: 0.7rem;"></i>
@@ -190,7 +190,7 @@ import { environment } from '../../../environments/environment';
                         
                         <!-- Preview image -->
                         <div class="slot-preview-box mb-2 border rounded overflow-hidden position-relative bg-light" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                          <img *ngIf="getImagePath('side')" [src]="getImagePath('side')" alt="Side View" class="w-100 h-100 object-fit-cover">
+                          <img *ngIf="getImagePath('side')" [src]="getImagePath('side')" (error)="handleImgError($event)" alt="Side View" class="w-100 h-100 object-fit-cover">
                           <i *ngIf="!getImagePath('side')" class="fas fa-image fs-1 text-muted opacity-25"></i>
                           <button type="button" *ngIf="getImagePath('side')" (click)="clearImageSlot('side')" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
                             <i class="fas fa-times" style="font-size: 0.7rem;"></i>
@@ -217,7 +217,7 @@ import { environment } from '../../../environments/environment';
                         
                         <!-- Preview image -->
                         <div class="slot-preview-box mb-2 border rounded overflow-hidden position-relative bg-light" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                          <img *ngIf="getImagePath('detail')" [src]="getImagePath('detail')" alt="Detail View" class="w-100 h-100 object-fit-cover">
+                          <img *ngIf="getImagePath('detail')" [src]="getImagePath('detail')" (error)="handleImgError($event)" alt="Detail View" class="w-100 h-100 object-fit-cover">
                           <i *ngIf="!getImagePath('detail')" class="fas fa-image fs-1 text-muted opacity-25"></i>
                           <button type="button" *ngIf="getImagePath('detail')" (click)="clearImageSlot('detail')" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
                             <i class="fas fa-times" style="font-size: 0.7rem;"></i>
@@ -244,7 +244,7 @@ import { environment } from '../../../environments/environment';
                         
                         <!-- Preview image -->
                         <div class="slot-preview-box mb-2 border rounded overflow-hidden position-relative bg-light" style="height: 120px; display: flex; align-items: center; justify-content: center;">
-                          <img *ngIf="getImagePath('thumbnail')" [src]="getImagePath('thumbnail')" alt="Thumbnail View" class="w-100 h-100 object-fit-cover">
+                          <img *ngIf="getImagePath('thumbnail')" [src]="getImagePath('thumbnail')" (error)="handleImgError($event)" alt="Thumbnail View" class="w-100 h-100 object-fit-cover">
                           <i *ngIf="!getImagePath('thumbnail')" class="fas fa-image fs-1 text-muted opacity-25"></i>
                           <button type="button" *ngIf="getImagePath('thumbnail')" (click)="clearImageSlot('thumbnail')" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle p-1 d-flex align-items-center justify-content-center" style="width: 22px; height: 22px;">
                             <i class="fas fa-times" style="font-size: 0.7rem;"></i>
@@ -319,7 +319,7 @@ import { environment } from '../../../environments/environment';
                             <label class="form-label fw-semibold text-muted small mb-1">Color Image</label>
                             <div class="d-flex gap-2 align-items-center">
                               <div class="border rounded overflow-hidden position-relative bg-light flex-shrink-0" style="width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
-                                <img *ngIf="getColorImagePath(i)" [src]="getColorImagePath(i)" alt="Color Preview" class="w-100 h-100 object-fit-cover">
+                                <img *ngIf="getColorImagePath(i)" [src]="getColorImagePath(i)" (error)="handleImgError($event)" alt="Color Preview" class="w-100 h-100 object-fit-cover">
                                 <i *ngIf="!getColorImagePath(i)" class="fas fa-paint-brush text-muted opacity-25" style="font-size: 1.2rem;"></i>
                                 <button type="button" *ngIf="getColorImagePath(i)" (click)="clearColorImage(i)" class="btn btn-xs btn-danger position-absolute top-0 end-0 rounded-circle p-0 d-flex align-items-center justify-content-center" style="width: 16px; height: 16px; margin: 1px;">
                                   <i class="fas fa-times" style="font-size: 0.55rem;"></i>
@@ -394,7 +394,7 @@ import { environment } from '../../../environments/environment';
             <div class="row g-3" style="max-height: 400px; overflow-y: auto;">
               <div class="col-6 col-sm-4 col-md-3 col-lg-2" *ngFor="let file of getFMActiveFiles()">
                 <div class="card h-100 cursor-pointer border rounded shadow-xs fm-image-card" (click)="selectFMImage(file.file_path)">
-                  <img [src]="imageBaseUrl + file.file_path" class="card-img-top object-fit-cover rounded" style="height: 110px;" [title]="file.file_name">
+                  <img [src]="imageBaseUrl + file.file_path" (error)="handleImgError($event)" class="card-img-top object-fit-cover rounded" style="height: 110px;" [title]="file.file_name">
                   <div class="p-2 border-top text-center text-truncate small text-muted" style="font-size: 0.72rem;">
                     {{ file.file_name }}
                   </div>
@@ -978,5 +978,9 @@ imageBaseUrl = environment.imageBaseUrl;
     const fileInput = document.getElementById('prod_file_' + slot) as HTMLInputElement;
     if (fileInput) fileInput.value = '';
     this.fmModalOpen.set(false);
+  }
+
+  handleImgError(event: any) {
+    event.target.src = 'assets/placeholder.png';
   }
 }

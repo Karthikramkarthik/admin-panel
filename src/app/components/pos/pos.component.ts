@@ -96,7 +96,8 @@ interface CartItem {
                        style="border-radius: 12px;">
                     <div>
                       <!-- Product image -->
-                      <img [src]="prod.image ? imageBaseUrl + prod.image : 'https://placehold.co/150x120/e2e8f0/64748b?text=Box'" 
+                      <img [src]="prod.image ? imageBaseUrl + prod.image : 'assets/placeholder.png'" 
+                           (error)="handleImgError($event)"
                            class="w-100 object-fit-cover rounded mb-2 border" 
                            style="height: 100px;">
                       
@@ -140,7 +141,8 @@ interface CartItem {
                        style="border-radius: 10px;">
                     <div class="d-flex align-items-center gap-3 w-100">
                       <!-- Product Image -->
-                      <img [src]="prod.image ? imageBaseUrl + prod.image : 'https://placehold.co/150x120/e2e8f0/64748b?text=Box'" 
+                      <img [src]="prod.image ? imageBaseUrl + prod.image : 'assets/placeholder.png'" 
+                           (error)="handleImgError($event)"
                            class="object-fit-cover rounded border" style="width: 70px; height: 70px; flex-shrink: 0;">
                       
                       <!-- Product Info -->
@@ -894,5 +896,9 @@ imageBaseUrl = environment.imageBaseUrl;
         this.checkoutError.set(err.error?.error || 'Checkout transaction failed.');
       }
     });
+  }
+
+  handleImgError(event: any) {
+    event.target.src = 'assets/placeholder.png';
   }
 }

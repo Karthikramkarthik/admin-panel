@@ -7,11 +7,12 @@ import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
 import { CustomerHistoryModalService } from '../../services/customer-history-modal.service';
 import { ProductPurchaseHistoryModalService } from '../../services/product-purchase-history-modal.service';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-product-purchase-history-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LoaderComponent],
   template: `
     <!-- Product Purchase History Modal -->
     <div class="modal fade" id="productPurchaseHistoryModal" tabindex="-1" aria-hidden="true" [class.show]="isOpen" [style.display]="isOpen ? 'block' : 'none'" style="background-color: rgba(0,0,0,0.5); z-index: 1055;">
@@ -27,19 +28,19 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
                 <span class="badge bg-light text-dark border">Catalog Analytics</span>
               </p>
             </div>
-            <div class="d-flex align-items-center gap-2 me-4">
+            <!-- <div class="d-flex align-items-center gap-2 me-4">
               <button class="btn btn-outline-success btn-xs py-1 px-2.5 fw-semibold d-flex align-items-center gap-1" (click)="exportCSV()" [disabled]="loading() || history().length === 0" style="font-size: 0.75rem;">
                 <i class="fas fa-file-excel"></i><span>CSV</span>
               </button>
               <button class="btn btn-outline-danger btn-xs py-1 px-2.5 fw-semibold d-flex align-items-center gap-1" (click)="exportPDF()" [disabled]="loading() || history().length === 0" style="font-size: 0.75rem;">
                 <i class="fas fa-file-pdf"></i><span>PDF</span>
               </button>
-            </div>
+            </div> -->
             <button type="button" class="btn-close" (click)="closeModal()"></button>
           </div>
 
           <!-- Modal Body with Scrollable Area -->
-          <div class="modal-body p-4 overflow-y-auto" style="flex: 1;">
+          <div class="modal-body p-4 overflow-y-auto position-relative" style="flex: 1; min-height: 250px;">
             
             <!-- Filters Panel -->
             <div class="card bg-light border-0 p-3 mb-4">
@@ -60,14 +61,14 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
                     <option value="website">Website Orders</option>
                   </select>
                 </div>
-                <div class="col-md-2.5 col-sm-4">
+                <!-- <div class="col-md-2.5 col-sm-4">
                   <label class="form-label fw-bold text-muted small mb-1">Start Date</label>
                   <input type="date" class="form-control form-control-sm" [(ngModel)]="filterStartDate" (change)="onFilterChange()">
                 </div>
                 <div class="col-md-2.5 col-sm-4">
                   <label class="form-label fw-bold text-muted small mb-1">End Date</label>
                   <input type="date" class="form-control form-control-sm" [(ngModel)]="filterEndDate" (change)="onFilterChange()">
-                </div>
+                </div> -->
               </div>
             </div>
 
@@ -104,17 +105,7 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
                 </div>
               </div>
 
-              <!-- Loading spinner -->
-              <div *ngIf="loading() && history().length === 0" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"></div>
-                <p class="text-muted mt-2">Loading customer purchase records...</p>
-              </div>
 
-              <!-- Empty state -->
-              <div *ngIf="!loading() && history().length === 0" class="text-center py-5 text-muted">
-                <i class="fas fa-history fs-2 mb-2 d-block"></i>
-                No customer purchase transactions logged for this product.
-              </div>
 
               <!-- Table list -->
               <div class="table-responsive rounded border" *ngIf="history().length > 0">
@@ -191,6 +182,15 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
               </div>
             </div>
 
+            <app-loader 
+              [loading]="loading()" 
+              [delay]="0"
+              [isEmpty]="!loading() && !errorMessage() && history().length === 0" 
+              [error]="errorMessage()" 
+              (retry)="loadHistory()"
+              emptyMessage="No customer purchase transactions logged for this product.">
+            </app-loader>
+
           </div>
 
           <!-- Modal Footer -->
@@ -223,6 +223,7 @@ export class ProductPurchaseHistoryModalComponent implements OnChanges {
   @Output() close = new EventEmitter<void>();
 
   loading = signal<boolean>(false);
+  errorMessage = signal<string | null>(null);
   history = signal<any[]>([]);
   summary = signal<any>({
     total_records: 0,
@@ -246,6 +247,7 @@ export class ProductPurchaseHistoryModalComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges) {
     if (changes['isOpen'] && changes['isOpen'].currentValue) {
       this.resetFilters();
+      this.errorMessage.set(null);
       if (this.productId) {
         this.loadHistory();
       }
@@ -264,6 +266,7 @@ export class ProductPurchaseHistoryModalComponent implements OnChanges {
   loadHistory() {
     if (!this.productId) return;
     this.loading.set(true);
+    this.errorMessage.set(null);
 
     const params: any = {
       page: this.pagination().page,
@@ -287,7 +290,9 @@ export class ProductPurchaseHistoryModalComponent implements OnChanges {
       },
       error: (err) => {
         this.loading.set(false);
-        this.toastService.show(err.error?.error || 'Failed to load product purchase history.', 'error');
+        const errMsg = err.error?.error || 'Failed to load product purchase history.';
+        this.errorMessage.set(errMsg);
+        this.toastService.show(errMsg, 'error');
         console.error('Failed to load product purchase history:', err);
       }
     });

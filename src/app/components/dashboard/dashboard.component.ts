@@ -439,7 +439,7 @@ declare var anychart: any; // Use global AnyChart from CDN to avoid bundler issu
                   <tr *ngFor="let p of topSellingProducts()">
                     <td>
                       <div class="d-flex align-items-center gap-2">
-                        <img *ngIf="p.image" [src]="imageBaseUrl + p.image" class="rounded border" style="width: 32px; height: 32px; object-fit: cover;">
+                        <img *ngIf="p.image" [src]="imageBaseUrl + p.image" (error)="handleImgError($event)" class="rounded border" style="width: 32px; height: 32px; object-fit: cover;">
                         <div class="rounded bg-light border d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" *ngIf="!p.image">
                           <i class="fas fa-box text-muted" style="font-size: 0.8rem;"></i>
                         </div>
@@ -815,5 +815,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   openProductHistory(prod: any) {
     this.productHistoryModalService.open(prod.id || prod.product_id, prod.name, prod.code);
+  }
+
+  handleImgError(event: any) {
+    event.target.src = 'assets/placeholder.png';
   }
 }

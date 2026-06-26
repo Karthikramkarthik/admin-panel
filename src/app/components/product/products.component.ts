@@ -134,7 +134,9 @@ import { LoaderComponent } from '../loader/loader.component';
             <tbody *ngIf="sortedProducts().length > 0">
               <tr *ngFor="let prod of sortedProducts()">
                 <td>
-                  <img [src]="prod.image ? imageBaseUrl + prod.image : 'https://placehold.co/50x50/e2e8f0/64748b?text=Box'" class="rounded border object-fit-cover" style="width: 48px; height: 48px;">
+                  <img [src]="prod.image ? imageBaseUrl + prod.image : 'assets/placeholder.png'" 
+                       (error)="handleImgError($event)"
+                       class="rounded border object-fit-cover" style="width: 48px; height: 48px;">
                 </td>
                 <td>
                   <div class="fw-bold text-primary cursor-pointer text-decoration-underline" (click)="openProductHistory(prod)">{{ prod.name }}</div>
@@ -498,5 +500,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   openProductHistory(prod: any) {
     this.productHistoryModalService.open(prod.id || prod.product_id, prod.name, prod.code);
+  }
+
+  handleImgError(event: any) {
+    event.target.src = 'assets/placeholder.png';
   }
 }
