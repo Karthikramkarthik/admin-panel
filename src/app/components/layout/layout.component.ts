@@ -1,6 +1,8 @@
 import { Component, signal, effect, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { ConnectionService } from '../../services/connection.service';
 import { AuthService } from '../../services/auth.service';
 import { ApiService } from '../../services/api.service';
 import { CategoryModalComponent } from '../category/category-modal.component';
@@ -154,6 +156,16 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
 
       <!-- Page Content -->
       <div id="page-content-wrapper" class="w-100 d-flex flex-column" style="min-height: 100vh;">
+        <!-- Connection Status Banner -->
+        <div *ngIf="!connectionService.isOnline()" class="bg-danger text-white text-center py-2 px-3 fw-bold animate-fade-in offline-banner" style="z-index: 1060; font-size: 0.9rem;">
+          <i class="fas fa-wifi-slash me-2 animate-bounce"></i>
+          No Internet Connection. Please check your network and try again.
+        </div>
+        <div *ngIf="connectionService.isOnline() && connectionService.showRestoredMessage()" class="bg-success text-white text-center py-2 px-3 fw-bold animate-fade-in online-banner" style="z-index: 1060; font-size: 0.9rem;">
+          <i class="fas fa-wifi me-2"></i>
+          Internet connection restored. Data is syncing...
+        </div>
+
         <!-- Top navbar -->
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom py-3 px-4 shadow-sm">
           <div class="container-fluid p-0">
@@ -296,9 +308,8 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
           </div>
         </nav>
 
-        <!-- Dynamic Page Injector -->
         <div class="container-fluid p-4 flex-grow-1 overflow-auto bg-light-subtle">
-          <router-outlet></router-outlet>
+          <router-outlet (activate)="onOutletActivate($event)"></router-outlet>
         </div>
       </div>
       
@@ -504,6 +515,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   sidebarCollapsed = signal<boolean>(false);
   darkMode = signal<boolean>(false);
+  connectionService = inject(ConnectionService);
+  activeComponent: any = null;
+  private connectionSubscription: Subscription | null = null;
 
   // Notifications signals
   notifications = signal<any[]>([]);
@@ -552,6 +566,10 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
     this.loadRecentSearches();
     this.setupTableObserver();
+
+    this.connectionSubscription = this.connectionService.restored$.subscribe(() => {
+      this.refreshActiveComponent();
+    });
 
     if (this.auth.isAuthenticated()) {
       this.loadNotifications();
@@ -757,6 +775,9 @@ export class LayoutComponent implements OnInit, OnDestroy {
     if (this.tableObserver) {
       this.tableObserver.disconnect();
     }
+    if (this.connectionSubscription) {
+      this.connectionSubscription.unsubscribe();
+    }
   }
 
   loadNotifications() {
@@ -869,5 +890,41 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   onCouponSaved(message: string) {
     this.couponModalService.couponSaved.next(message);
+  }
+
+  onOutletActivate(component: any) {
+    this.activeComponent = component;
+  }
+
+  refreshActiveComponent() {
+    if (!this.activeComponent) return;
+
+    const commonLoadMethods = [
+      'loadData',
+      'loadProducts',
+      'loadCategories',
+      'loadSuppliers',
+      'loadExpenses',
+      'loadCustomers',
+      'loadOrders',
+      'loadInvoices',
+      'loadReports',
+      'loadCoupons',
+      'loadExplorer',
+      'loadHistory',
+      'ngOnInit'
+    ];
+
+    for (const methodName of commonLoadMethods) {
+      if (typeof this.activeComponent[methodName] === 'function') {
+        try {
+          console.log(`Auto-refreshing component ${this.activeComponent.constructor.name} via ${methodName}()`);
+          this.activeComponent[methodName]();
+          return;
+        } catch (e) {
+          console.error(`Error auto-refreshing active component:`, e);
+        }
+      }
+    }
   }
 }
