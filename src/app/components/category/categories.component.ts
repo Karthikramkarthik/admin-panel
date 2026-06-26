@@ -5,13 +5,14 @@ import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { CategoryModalService } from '../../services/category-modal.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-categories',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -68,7 +69,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Categories Table Card -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -83,7 +84,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="categories().length > 0">
               <tr *ngFor="let cat of categories()">
                 <td class="fw-semibold">{{ cat.name }}</td>
                 <td><span class="badge bg-light text-muted border">{{ cat.slug }}</span></td>
@@ -133,12 +134,17 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="categories().length === 0">
-                <td [attr.colspan]="isAuthorizedForAudit() ? 8 : 5" class="text-center text-muted py-4">No categories found. Click Add Category to create one.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && categories().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadCategories()"
+          emptyMessage="No categories found. Click Add Category to create one.">
+        </app-loader>
       </div>
     </div>
   `
@@ -164,6 +170,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   }
 
   rawCategories = signal<any[]>([]);
+  loading = signal<boolean>(false);
   showAuditFilters = signal<boolean>(false);
   auditUserFilter = signal<string>('');
   auditRoleFilter = signal<string>('');
@@ -230,14 +237,25 @@ export class CategoriesComponent implements OnInit, OnDestroy {
   }
 
   loadCategories() {
-    this.api.get('categories').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.rawCategories.set(res.categories);
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('categories')
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.rawCategories.set(res.categories);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load categories.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load categories:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load categories.');
         }
-      },
-      error: (err) => console.error('Failed to load categories:', err)
-    });
+      });
   }
 
   toggleAuditFilters() {

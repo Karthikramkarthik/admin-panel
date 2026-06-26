@@ -5,11 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { AuthService } from '../../services/auth.service';
+import { LoaderComponent } from '../loader/loader.component';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-invoices',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, RouterLink, FormsModule, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -42,7 +44,7 @@ import { AuthService } from '../../services/auth.service';
       </div>
 
       <!-- Tab: Sales Invoices -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden" *ngIf="activeTab() === 'sales'">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;" *ngIf="activeTab() === 'sales'">
         <!-- Filters Row -->
         <div class="p-3 bg-light-subtle border-bottom no-print">
           <div class="row g-3 align-items-center">
@@ -92,7 +94,7 @@ import { AuthService } from '../../services/auth.service';
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="filteredSales().length > 0">
               <tr *ngFor="let sale of filteredSales()">
                 <td class="fw-bold">
                   <a [routerLink]="['/invoices/view', sale.id]" class="text-primary text-decoration-none">
@@ -144,16 +146,20 @@ import { AuthService } from '../../services/auth.service';
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="filteredSales().length === 0">
-                <td colspan="10" class="text-center text-muted py-4">No sales records found matching the filters.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading() && activeTab() === 'sales'" 
+          [isEmpty]="!loading() && !errorMessage() && filteredSales().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadSales()"
+          emptyMessage="No sales records found matching the filters.">
+        </app-loader>
       </div>
 
       <!-- Tab: Price Audits -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden" *ngIf="activeTab() === 'audits'">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;" *ngIf="activeTab() === 'audits'">
         <div class="table-responsive">
           <table class="custom-table m-0" style="font-size: 0.85rem;">
             <thead>
@@ -169,7 +175,7 @@ import { AuthService } from '../../services/auth.service';
                 <th>Deviation</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="audits().length > 0">
               <tr *ngFor="let aud of audits()">
                 <td>{{ aud.created_at }}</td>
                 <td class="fw-semibold">{{ aud.username }}</td>
@@ -187,12 +193,16 @@ import { AuthService } from '../../services/auth.service';
                   {{ aud.edited_price - aud.original_price > 0 ? '+' : '' }}₹{{ (aud.edited_price - aud.original_price) | number:'1.2-2' }}
                 </td>
               </tr>
-              <tr *ngIf="audits().length === 0">
-                <td colspan="9" class="text-center text-muted py-4">No price deviation audits recorded. All transactions matched catalog prices perfectly.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading() && activeTab() === 'audits'" 
+          [isEmpty]="!loading() && !errorMessage() && audits().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadAudits()"
+          emptyMessage="No price deviation audits recorded.">
+        </app-loader>
       </div>
 
       <!-- Confirm Payment Modal -->
@@ -264,6 +274,7 @@ export class InvoicesComponent implements OnInit {
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   // Computed filtered list
   filteredSales = computed(() => {
@@ -310,21 +321,41 @@ export class InvoicesComponent implements OnInit {
   }
 
   loadSales() {
-    this.api.get('sales').subscribe({
-      next: (res) => {
-        if (res.success) this.sales.set(res.sales);
-      },
-      error: (err) => console.error('Failed to load sales list:', err)
-    });
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('sales')
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) this.sales.set(res.sales);
+          else this.errorMessage.set(res.message || 'Failed to load sales invoices.');
+        },
+        error: (err) => {
+          console.error('Failed to load sales list:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load sales invoices.');
+        }
+      });
   }
 
   loadAudits() {
-    this.api.get('sales/price-audits').subscribe({
-      next: (res) => {
-        if (res.success) this.audits.set(res.audits);
-      },
-      error: (err) => console.error('Failed to load audits list:', err)
-    });
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('sales/price-audits')
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) this.audits.set(res.audits);
+          else this.errorMessage.set(res.message || 'Failed to load price audits.');
+        },
+        error: (err) => {
+          console.error('Failed to load audits list:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load price audits.');
+        }
+      });
   }
 
   setTab(tab: string) {

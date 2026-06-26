@@ -6,14 +6,15 @@ import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { SupplierModalService } from '../../services/supplier-modal.service';
 import { PurchaseModalService } from '../../services/purchase-modal.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-suppliers',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -70,7 +71,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Suppliers Grid -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -85,7 +86,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="suppliers().length > 0">
               <tr *ngFor="let sup of suppliers()">
                 <td class="fw-semibold">{{ sup.name }}</td>
                 <td>{{ sup.mobile }}</td>
@@ -106,12 +107,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="suppliers().length === 0">
-                <td [attr.colspan]="isAuthorizedForAudit() ? 8 : 5" class="text-center text-muted py-4">No suppliers found. Click Add Supplier to create one.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && suppliers().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadSuppliers()"
+          emptyMessage="No suppliers found. Click Add Supplier to create one.">
+        </app-loader>
       </div>
 
       <!-- Supplier Details & History Modal -->
@@ -343,6 +348,7 @@ imageBaseUrl = environment.imageBaseUrl;
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   // Supplier Details History States
   detailsModalOpen = signal<boolean>(false);
@@ -386,14 +392,25 @@ imageBaseUrl = environment.imageBaseUrl;
   }
 
   loadSuppliers() {
-    this.api.get('suppliers').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.rawSuppliers.set(res.suppliers);
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('suppliers')
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.rawSuppliers.set(res.suppliers);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load suppliers.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load suppliers:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load suppliers.');
         }
-      },
-      error: (err) => console.error('Failed to load suppliers:', err)
-    });
+      });
   }
 
   toggleAuditFilters() {

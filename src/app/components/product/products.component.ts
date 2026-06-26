@@ -7,14 +7,15 @@ import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { ProductModalService } from '../../services/product-modal.service';
 import { LoaderService } from '../../services/loader.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
 import { ProductPurchaseHistoryModalService } from '../../services/product-purchase-history-modal.service';
+import { LoaderComponent } from '../loader/loader.component';
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -98,35 +99,29 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
         <i class="fas fa-check-circle me-2"></i>{{ successMessage() }}
       </div>
 
-      <!-- Products Grid/List -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <!-- Products Table Card -->
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
               <tr>
-                <th style="width: 70px;">Image</th>
-                <th (click)="toggleSort('code')" class="cursor-pointer">
-                  Product details
-                  <i class="fas" [ngClass]="getSortIcon('code')"></i>
+                <th>Image</th>
+                <th class="cursor-pointer" (click)="toggleSort('name')">
+                  Product Name
+                  <i class="fas" [ngClass]="getSortIcon('name')"></i>
                 </th>
-                <th (click)="toggleSort('category_name')" class="cursor-pointer">
-                  Category
-                  <i class="fas" [ngClass]="getSortIcon('category_name')"></i>
-                </th>
-                <th (click)="toggleSort('supplier_name')" class="cursor-pointer">
-                  Supplier
-                  <i class="fas" [ngClass]="getSortIcon('supplier_name')"></i>
-                </th>
-                <th (click)="toggleSort('purchase_price')" class="cursor-pointer">
-                  Purchase Cost
+                <th>Category</th>
+                <th>Supplier</th>
+                <th class="cursor-pointer" (click)="toggleSort('purchase_price')">
+                  Cost Price
                   <i class="fas" [ngClass]="getSortIcon('purchase_price')"></i>
                 </th>
-                <th (click)="toggleSort('sales_price')" class="cursor-pointer">
-                  Retail Price
+                <th class="cursor-pointer" (click)="toggleSort('sales_price')">
+                  Sales Price
                   <i class="fas" [ngClass]="getSortIcon('sales_price')"></i>
                 </th>
-                <th (click)="toggleSort('stock_quantity')" class="cursor-pointer">
-                  Stock Level
+                <th class="cursor-pointer" (click)="toggleSort('stock_quantity')">
+                  Stock
                   <i class="fas" [ngClass]="getSortIcon('stock_quantity')"></i>
                 </th>
                 <th>Sizes Available</th>
@@ -136,106 +131,75 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              <!-- Skeleton Loading State -->
-              <ng-container *ngIf="loaderService.productsLoading()">
-                <tr *ngFor="let item of [1,2,3,4,5]">
-                  <td><div class="skeleton-loader skeleton-circle" style="width: 44px; height: 44px;"></div></td>
-                  <td>
-                    <div class="skeleton-loader skeleton-text" style="width: 140px;"></div>
-                    <div class="skeleton-loader skeleton-text" style="width: 70px; height: 12px; margin-top: 4px;"></div>
-                  </td>
-                  <td><div class="skeleton-loader skeleton-text" style="width: 90px;"></div></td>
-                  <td><div class="skeleton-loader skeleton-text" style="width: 90px;"></div></td>
-                  <td><div class="skeleton-loader skeleton-text" style="width: 70px;"></div></td>
-                  <td>
-                    <div class="skeleton-loader skeleton-text" style="width: 70px;"></div>
-                    <div class="skeleton-loader skeleton-text" style="width: 50px; height: 12px; margin-top: 4px;"></div>
-                  </td>
-                  <td>
-                    <div class="skeleton-loader skeleton-text" style="width: 80px; height: 12px;"></div>
-                    <div class="skeleton-loader skeleton-text" style="width: 80px; height: 12px; margin-top: 4px;"></div>
-                  </td>
-                  <td><div class="skeleton-loader skeleton-text" style="width: 120px;"></div></td>
-                  <td *ngIf="isAuthorizedForAudit()"><div class="skeleton-loader skeleton-text" style="width: 80px;"></div></td>
-                  <td *ngIf="isAuthorizedForAudit()"><div class="skeleton-loader skeleton-text" style="width: 80px;"></div></td>
-                  <td *ngIf="isAuthorizedForAudit()"><div class="skeleton-loader skeleton-text" style="width: 80px;"></div></td>
-                  <td class="text-end">
-                    <div class="skeleton-loader skeleton-text d-inline-block me-2" style="width: 30px;"></div>
-                    <div class="skeleton-loader skeleton-text d-inline-block" style="width: 30px;"></div>
-                  </td>
-                </tr>
-              </ng-container>
-
-              <!-- Data List State -->
-              <ng-container *ngIf="!loaderService.productsLoading()">
-                <tr *ngFor="let prod of sortedProducts()">
-                  <td>
-                    <img [src]="prod.image ? imageBaseUrl + prod.image : 'https://placehold.co/50x50/e2e8f0/64748b?text=Box'" class="rounded border object-fit-cover" style="width: 48px; height: 48px;">
-                  </td>
-                  <td>
-                    <div class="fw-bold text-primary cursor-pointer text-decoration-underline" (click)="openProductHistory(prod)">{{ prod.name }}</div>
-                    <span class="badge bg-light text-muted border mt-1" style="font-size: 0.72rem;">{{ prod.code }}</span>
-                  </td>
-                  <td>{{ prod.category_name || 'General' }}</td>
-                  <td>{{ prod.supplier_name || '-' }}</td>
-                  <td class="fw-semibold">₹{{ prod.purchase_price | number:'1.2-2' }}</td>
-                  <td class="fw-semibold text-primary">
-                    <div>₹{{ prod.sales_price | number:'1.2-2' }}</div>
-                    <div class="text-muted text-decoration-line-through small fw-normal" *ngIf="prod.actual_price" style="font-size: 0.72rem;">
-                      ₹{{ prod.actual_price | number:'1.2-2' }}
-                    </div>
-                    <span class="badge bg-danger-subtle text-danger px-1.5 py-0.5 mt-1 font-monospace" style="font-size: 0.65rem;" *ngIf="prod.discount_percent > 0">
-                      {{ prod.discount_percent }}% OFF
+            <tbody *ngIf="sortedProducts().length > 0">
+              <tr *ngFor="let prod of sortedProducts()">
+                <td>
+                  <img [src]="prod.image ? imageBaseUrl + prod.image : 'https://placehold.co/50x50/e2e8f0/64748b?text=Box'" class="rounded border object-fit-cover" style="width: 48px; height: 48px;">
+                </td>
+                <td>
+                  <div class="fw-bold text-primary cursor-pointer text-decoration-underline" (click)="openProductHistory(prod)">{{ prod.name }}</div>
+                  <span class="badge bg-light text-muted border mt-1" style="font-size: 0.72rem;">{{ prod.code }}</span>
+                </td>
+                <td>{{ prod.category_name || 'General' }}</td>
+                <td>{{ prod.supplier_name || '-' }}</td>
+                <td class="fw-semibold">₹{{ prod.purchase_price | number:'1.2-2' }}</td>
+                <td class="fw-semibold text-primary">
+                  <div>₹{{ prod.sales_price | number:'1.2-2' }}</div>
+                  <div class="text-muted text-decoration-line-through small fw-normal" *ngIf="prod.actual_price" style="font-size: 0.72rem;">
+                    ₹{{ prod.actual_price | number:'1.2-2' }}
+                  </div>
+                  <span class="badge bg-danger-subtle text-danger px-1.5 py-0.5 mt-1 font-monospace" style="font-size: 0.65rem;" *ngIf="prod.discount_percent > 0">
+                    {{ prod.discount_percent }}% OFF
+                  </span>
+                </td>
+                <td>
+                  <div class="d-flex flex-column gap-1">
+                    <span class="fw-extrabold badge align-self-start" style="font-size: 0.65rem;" [ngClass]="{
+                      'text-danger': prod.stock_quantity <= 10,
+                      'bg-danger-subtle': prod.stock_quantity <= 10,
+                      'text-success': prod.stock_quantity > 10,
+                      'bg-success-subtle': prod.stock_quantity > 10
+                    }">
+                      Current: {{ prod.stock_quantity }}
                     </span>
-                  </td>
-                  <td>
-                    <div class="d-flex flex-column gap-1">
-                      <span class="fw-extrabold badge align-self-start" style="font-size: 0.65rem;" [ngClass]="{
-                        'text-danger': prod.stock_quantity <= 10,
-                        'bg-danger-subtle': prod.stock_quantity <= 10,
-                        'text-success': prod.stock_quantity > 10,
-                        'bg-success-subtle': prod.stock_quantity > 10
-                      }">
-                        Current: {{ prod.stock_quantity }}
-                      </span>
-                      <span class="badge bg-light text-muted border align-self-start" style="font-size: 0.65rem;">
-                        Initial: {{ prod.initial_stock_quantity ?? 0 }}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div class="d-flex flex-wrap gap-1">
-                      <span class="badge bg-light text-dark border" style="font-size: 0.7rem;" *ngFor="let v of prod.variants">
-                        {{ v.size }} ({{ v.stock_quantity }})
-                      </span>
-                      <span class="text-muted" style="font-size: 0.8rem;" *ngIf="prod.variants.length === 0">
-                        {{ prod.size || '-' }}
-                      </span>
-                    </div>
-                  </td>
-                  <td *ngIf="isAuthorizedForAudit()">{{ prod.created_by_name || '-' }}</td>
-                  <td *ngIf="isAuthorizedForAudit()">{{ prod.created_by_role || '-' }}</td>
-                  <td *ngIf="isAuthorizedForAudit()">{{ (prod.created_at | date: 'dd-MM-yyyy') || '-' }}</td>
-                  <td class="text-end">
-                    <button class="btn btn-sm btn-outline-primary me-2" (click)="openEditModal(prod)" *appHasPermission="['Products', 'Edit']">
-                      <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(prod.id)" *appHasPermission="['Products', 'Delete']">
-                      <i class="fas fa-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-                <tr *ngIf="sortedProducts().length === 0">
-                  <td [attr.colspan]="isAuthorizedForAudit() ? 12 : 9" class="text-center text-muted py-5">
-                    <i class="fas fa-box-open d-block fs-2 mb-2 text-primary opacity-50"></i>
-                    No products found matching filters.
-                  </td>
-                </tr>
-              </ng-container>
+                    <span class="badge bg-light text-muted border align-self-start" style="font-size: 0.65rem;">
+                      Initial: {{ prod.initial_stock_quantity ?? 0 }}
+                    </span>
+                  </div>
+                </td>
+                <td>
+                  <div class="d-flex flex-wrap gap-1">
+                    <span class="badge bg-light text-dark border" style="font-size: 0.7rem;" *ngFor="let v of prod.variants">
+                      {{ v.size }} ({{ v.stock_quantity }})
+                    </span>
+                    <span class="text-muted" style="font-size: 0.8rem;" *ngIf="prod.variants.length === 0">
+                      {{ prod.size || '-' }}
+                    </span>
+                  </div>
+                </td>
+                <td *ngIf="isAuthorizedForAudit()">{{ prod.created_by_name || '-' }}</td>
+                <td *ngIf="isAuthorizedForAudit()">{{ prod.created_by_role || '-' }}</td>
+                <td *ngIf="isAuthorizedForAudit()">{{ (prod.created_at | date: 'dd-MM-yyyy') || '-' }}</td>
+                <td class="text-end">
+                  <button class="btn btn-sm btn-outline-primary me-2" (click)="openEditModal(prod)" *appHasPermission="['Products', 'Edit']">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="deleteProduct(prod.id)" *appHasPermission="['Products', 'Delete']">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>
+
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && sortedProducts().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadProducts()"
+          emptyMessage="No products found matching filters.">
+        </app-loader>
       </div>
     </div>
   `,
@@ -352,6 +316,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   private sub: Subscription | null = null;
 
@@ -374,19 +339,30 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   loadProducts() {
+    this.loading.set(true);
+    this.errorMessage.set(null);
     const params = {
       q: this.searchQuery(),
       category: this.selectedCategoryFilter(),
       supplier: this.selectedSupplierFilter()
     };
-    this.api.get('products', params).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.products.set(res.products);
+    this.api.get('products', params)
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.products.set(res.products);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load products.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load products:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load products.');
         }
-      },
-      error: (err) => console.error('Failed to load products:', err)
-    });
+      });
   }
 
   loadCategories() {

@@ -5,6 +5,8 @@ import { Router } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { environment } from '../../../environments/environment';
+import { LoaderComponent } from '../loader/loader.component';
+import { finalize } from 'rxjs';
 interface CartItem {
   id: number;
   code: string;
@@ -19,7 +21,7 @@ interface CartItem {
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReactiveFormsModule],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, LoaderComponent],
   template: `
     <div class="animate-fade-in POS-grid-layout">
       <!-- Mobile POS Tab Switcher -->
@@ -84,8 +86,8 @@ interface CartItem {
           </div>
 
           <!-- Products Listing -->
-          <div class="flex-grow-1 overflow-y-auto px-1 overflow-x-hidden">
-            <div class="row g-3">
+          <div class="flex-grow-1 overflow-y-auto px-1 overflow-x-hidden position-relative" style="min-height: 200px;">
+            <div class="row g-3" *ngIf="products().length > 0">
               <!-- Grid view (sw-layout-3) -->
               <ng-container *ngIf="layoutMode() === 'sw-layout-3'">
                 <div class="col-lg-4 col-md-4 col-sm-6 col-12 layout-transition-item" *ngFor="let prod of products()">
@@ -177,11 +179,15 @@ interface CartItem {
                   </div>
                 </div>
               </ng-container>
-
-              <div class="col-12 text-center text-muted py-5" *ngIf="products().length === 0">
-                No active products matching criteria.
-              </div>
             </div>
+
+            <app-loader 
+              [loading]="loadingProducts()" 
+              [isEmpty]="!loadingProducts() && !productsError() && products().length === 0" 
+              [error]="productsError()" 
+              (retry)="loadProducts()"
+              emptyMessage="No active products found matching filters.">
+            </app-loader>
           </div>
         </div>
 
@@ -581,6 +587,8 @@ imageBaseUrl = environment.imageBaseUrl;
   loadingCheckout = signal<boolean>(false);
   loadingCustomer = signal<boolean>(false);
   customerModalOpen = signal<boolean>(false);
+  loadingProducts = signal<boolean>(false);
+  productsError = signal<string | null>(null);
 
   customerForm: FormGroup = this.fb.group({
     name: ['', Validators.required],
@@ -616,19 +624,31 @@ imageBaseUrl = environment.imageBaseUrl;
   }
 
   loadProducts() {
+    this.loadingProducts.set(true);
+    this.productsError.set(null);
     const params = {
       q: this.searchQuery(),
       category: this.selectedCategory()
     };
-    this.api.get('products', params).subscribe({
-      next: (res) => {
-        if (res.success) {
-          console.log(res.products);
-          // Filter to active stock only or let POS render all
-          this.products.set(res.products.filter((p: any) => p.status === 'active'));
+    this.api.get('products', params)
+      .pipe(
+        finalize(() => this.loadingProducts.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            console.log(res.products);
+            // Filter to active stock only or let POS render all
+            this.products.set(res.products.filter((p: any) => p.status === 'active'));
+          } else {
+            this.productsError.set(res.message || 'Failed to load products.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load products:', err);
+          this.productsError.set(err.error?.error || 'Failed to load products.');
         }
-      }
-    });
+      });
   }
 
   loadCategories() {

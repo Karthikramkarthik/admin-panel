@@ -6,6 +6,7 @@ import { ApiService } from '../../services/api.service';
 import { LoaderService } from '../../services/loader.service';
 import { AuthService } from '../../services/auth.service';
 import { ToastService } from '../../services/toast.service';
+import { finalize } from 'rxjs';
 
 declare var anychart: any;
 
@@ -72,6 +73,15 @@ declare var anychart: any;
             <input type="date" class="form-control form-control-sm" [(ngModel)]="filterEndDate" (change)="loadData()">
           </div>
         </div>
+      </div>
+
+      <div class="alert alert-danger border-0 p-3 mb-4 rounded d-flex justify-content-between align-items-center no-print" style="font-size: 0.85rem;" *ngIf="errorMessage()">
+        <div>
+          <i class="fas fa-exclamation-circle me-2"></i>{{ errorMessage() }}
+        </div>
+        <button class="btn btn-sm btn-danger py-1 px-3" (click)="loadData()">
+          <i class="fas fa-sync-alt me-1"></i>Retry
+        </button>
       </div>
 
       <!-- Report Printable Container wrapper -->
@@ -269,6 +279,7 @@ export class RevenueHistoryComponent implements OnInit, OnDestroy {
   filterEndDate = '';
 
   loading = signal<boolean>(false);
+  errorMessage = signal<string | null>(null);
   history = signal<any[]>([]);
   summary = signal<any>({
     total_orders: 0,
@@ -315,6 +326,7 @@ export class RevenueHistoryComponent implements OnInit, OnDestroy {
 
   loadData() {
     this.loading.set(true);
+    this.errorMessage.set(null);
     const params = {
       interval: this.filterInterval,
       source: this.filterSource,
@@ -322,20 +334,24 @@ export class RevenueHistoryComponent implements OnInit, OnDestroy {
       endDate: this.filterEndDate
     };
 
-    this.api.get('reports/revenue-history', params).subscribe({
-      next: (res) => {
-        this.loading.set(false);
-        if (res.success) {
-          this.history.set(res.history || []);
-          this.summary.set(res.summary);
-          this.initChart(res.history || []);
+    this.api.get('reports/revenue-history', params)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.history.set(res.history || []);
+            this.summary.set(res.summary);
+            this.initChart(res.history || []);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load revenue history ledger.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load revenue history:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load revenue history ledger.');
+          this.toastService.show(err.error?.error || 'Failed to load revenue history ledger.', 'error');
         }
-      },
-      error: (err) => {
-        this.loading.set(false);
-        this.toastService.show(err.error?.error || 'Failed to load revenue history ledger.', 'error');
-      }
-    });
+      });
   }
 
   initChart(data: any[]) {

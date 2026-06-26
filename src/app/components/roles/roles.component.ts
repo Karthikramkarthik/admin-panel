@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { finalize } from 'rxjs';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <!-- Top Navigation Tabs -->
@@ -37,9 +39,9 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- TAB 1: Roles List & Editor -->
-      <div *ngIf="activeTab() === 'roles'">
+      <div class="position-relative" *ngIf="activeTab() === 'roles'">
         <!-- Roles List (Visible when not editing) -->
-        <div *ngIf="!isEditing()">
+        <div *ngIf="!isEditing()" class="position-relative" style="min-height: 200px;">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="fw-semibold m-0 text-main">System Roles</h5>
             <button class="btn btn-primary" (click)="startCreateRole()" *appHasPermission="['Settings', 'Create']">
@@ -47,7 +49,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
             </button>
           </div>
 
-          <div class="row g-4">
+          <div class="row g-4" *ngIf="roles().length > 0">
             <div class="col-md-6 col-lg-4" *ngFor="let role of roles()">
               <div class="card glass-card border-0 shadow-sm h-100 role-card">
                 <div class="card-body p-4 d-flex flex-column">
@@ -86,6 +88,14 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
               </div>
             </div>
           </div>
+
+          <app-loader 
+            [loading]="rolesLoading()" 
+            [isEmpty]="!rolesLoading() && !errorMessage() && roles().length === 0" 
+            [error]="errorMessage()" 
+            (retry)="loadRoles()"
+            emptyMessage="No system roles found.">
+          </app-loader>
         </div>
 
         <!-- Role Editor (Visible when editing/creating) -->
@@ -200,7 +210,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
 
       <!-- TAB 2: Audit Logs -->
       <div *ngIf="activeTab() === 'audit'">
-        <div class="card glass-card border-0 shadow-sm overflow-hidden animate-fade-in">
+        <div class="card glass-card border-0 shadow-sm overflow-hidden animate-fade-in position-relative" style="min-height: 200px;">
           <div class="card-header bg-transparent border-0 p-3 d-flex justify-content-between align-items-center">
             <h6 class="fw-bold m-0 text-main"><i class="fas fa-list-ul me-2 text-primary"></i>Role Security Audit Trail</h6>
             <button class="btn btn-sm btn-outline-secondary" (click)="loadAuditLogs()">
@@ -219,7 +229,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   <th style="min-width: 320px;">Details</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody *ngIf="auditLogs().length > 0">
                 <tr *ngFor="let log of auditLogs()">
                   <td class="small text-muted">{{ log.created_at | date:'short' }}</td>
                   <td>
@@ -233,12 +243,17 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   <td class="fw-semibold text-muted">{{ log.role_name || 'N/A' }}</td>
                   <td class="small text-main">{{ log.details }}</td>
                 </tr>
-                <tr *ngIf="auditLogs().length === 0">
-                  <td colspan="5" class="text-center text-muted py-4">No audit logs found.</td>
-                </tr>
               </tbody>
             </table>
           </div>
+          
+          <app-loader 
+            [loading]="auditLoading()" 
+            [isEmpty]="!auditLoading() && !errorMessage() && auditLogs().length === 0" 
+            [error]="errorMessage()" 
+            (retry)="loadAuditLogs()"
+            emptyMessage="No audit logs found.">
+          </app-loader>
         </div>
       </div>
     </div>
@@ -343,6 +358,8 @@ export class RolesComponent implements OnInit {
   isEditing = signal<boolean>(false);
   editingRole = signal<any | null>(null);
   loading = signal<boolean>(false);
+  rolesLoading = signal<boolean>(false);
+  auditLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
@@ -391,14 +408,23 @@ export class RolesComponent implements OnInit {
   }
 
   loadRoles() {
-    this.api.get('roles').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.roles.set(res.roles);
+    this.rolesLoading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('roles')
+      .pipe(finalize(() => this.rolesLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.roles.set(res.roles);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to retrieve roles.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load roles:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to retrieve roles.');
         }
-      },
-      error: (err) => console.error('Failed to load roles:', err)
-    });
+      });
   }
 
   loadUsersList() {
@@ -413,14 +439,23 @@ export class RolesComponent implements OnInit {
   }
 
   loadAuditLogs() {
-    this.api.get('roles/audit-logs').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.auditLogs.set(res.auditLogs);
+    this.auditLoading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('roles/audit-logs')
+      .pipe(finalize(() => this.auditLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.auditLogs.set(res.auditLogs);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to retrieve role audit logs.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load role audit logs:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to retrieve role audit logs.');
         }
-      },
-      error: (err) => console.error('Failed to load role audit logs:', err)
-    });
+      });
   }
 
   filteredModules(): string[] {

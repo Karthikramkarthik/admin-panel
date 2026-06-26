@@ -5,13 +5,14 @@ import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { CouponModalService } from '../../services/coupon-modal.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-coupons',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -68,7 +69,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Coupons Grid -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -87,7 +88,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="coupons().length > 0">
               <tr *ngFor="let coupon of coupons()">
                 <td><strong class="text-primary fs-5" style="letter-spacing: 0.5px;">{{ coupon.code }}</strong></td>
                 <td>
@@ -119,12 +120,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="coupons().length === 0">
-                <td [attr.colspan]="isAuthorizedForAudit() ? 12 : 9" class="text-center text-muted py-4">No coupons configured. Click Create Coupon.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && coupons().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadCoupons()"
+          emptyMessage="No coupons configured. Click Create Coupon.">
+        </app-loader>
       </div>
     </div>
   `
@@ -197,6 +202,7 @@ export class CouponsComponent implements OnInit, OnDestroy {
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   private sub: Subscription | null = null;
 
@@ -217,14 +223,23 @@ export class CouponsComponent implements OnInit, OnDestroy {
   }
 
   loadCoupons() {
-    this.api.get('admin/coupons').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.rawCoupons.set(res.coupons);
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('admin/coupons')
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.rawCoupons.set(res.coupons);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load coupons.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load coupons:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load coupons.');
         }
-      },
-      error: (err) => console.error('Failed to load coupons:', err)
-    });
+      });
   }
 
   openAddModal() {

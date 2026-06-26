@@ -5,11 +5,13 @@ import { ApiService } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -32,7 +34,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Users Grid/Table -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -44,7 +46,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end" style="min-width: 100px;">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="users().length > 0">
               <tr *ngFor="let usr of users()">
                 <td class="fw-bold text-main d-flex align-items-center gap-2">
                   <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.85rem;">
@@ -69,12 +71,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="users().length === 0">
-                <td colspan="5" class="text-center text-muted py-4">No users found. Click Add User to create one.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="tableLoading()" 
+          [isEmpty]="!tableLoading() && !errorMessage() && users().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadUsers()"
+          emptyMessage="No users found. Click Add User to create one.">
+        </app-loader>
       </div>
     </div>
 
@@ -164,6 +170,7 @@ export class UsersComponent implements OnInit {
   isModalOpen = signal<boolean>(false);
   editingUser = signal<any | null>(null);
   loading = signal<boolean>(false);
+  tableLoading = signal<boolean>(false);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
@@ -180,14 +187,23 @@ export class UsersComponent implements OnInit {
   }
 
   loadUsers() {
-    this.api.get('users').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.users.set(res.users);
+    this.tableLoading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('users')
+      .pipe(finalize(() => this.tableLoading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.users.set(res.users);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to retrieve user list.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load user list:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to retrieve user list.');
         }
-      },
-      error: (err) => console.error('Failed to load user list:', err)
-    });
+      });
   }
 
   loadRoles() {

@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { environment } from '../../../environments/environment';
+import { finalize } from 'rxjs';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-file-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -101,14 +103,14 @@ import { environment } from '../../../environments/environment';
             </div>
 
             <ng-template #noActiveFolderTpl>
-              <div class="text-center text-muted py-5">
+              <div class="text-center text-muted py-5" *ngIf="!loading() && !errorMessage()">
                 <i class="fas fa-folder-closed fs-1 mb-3 text-light"></i>
                 <h5>Select a directory from the folder drawer to explore files</h5>
               </div>
             </ng-template>
 
             <!-- Files Grid explorer -->
-            <div class="row g-3" *ngIf="activeFolder()">
+            <div class="row g-3" *ngIf="activeFolder() && files().length > 0">
               <!-- Progress Upload Tracker -->
               <div class="col-12" *ngIf="uploading()">
                 <div class="alert alert-info py-2 px-3 d-flex align-items-center gap-3">
@@ -133,13 +135,13 @@ import { environment } from '../../../environments/environment';
                     </div>
                     
                     <div class="fw-semibold text-truncate px-1 text-main" style="font-size: 0.8rem;" [title]="file.file_name">{{ file.file_name }}</div>
-                  <div class="text-muted" style="font-size: 0.72rem;">
-  {{
-    file.file_size >= 1048576
-      ? ((file.file_size / 1024 / 1024) | number:'1.2-2') + ' MB'
-      : ((file.file_size / 1024) | number:'1.0-0') + ' KB'
-  }}
-</div>
+                    <div class="text-muted" style="font-size: 0.72rem;">
+                      {{
+                        file.file_size >= 1048576
+                          ? ((file.file_size / 1024 / 1024) | number:'1.2-2') + ' MB'
+                          : ((file.file_size / 1024) | number:'1.0-0') + ' KB'
+                      }}
+                    </div>
                   </div>
 
                   <div class="d-flex gap-1 border-top pt-2">
@@ -152,13 +154,25 @@ import { environment } from '../../../environments/environment';
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div class="col-12 text-center text-muted py-5" *ngIf="files().length === 0 && !uploading()">
-                <i class="fas fa-cloud-arrow-up fs-1 mb-3 text-light animate-bounce"></i>
-                <h6 class="fw-bold text-main m-0">This directory is empty</h6>
-                <p class="text-muted mt-1" style="font-size: 0.82rem;">Drag & drop images or files here, or click the Upload button.</p>
+            <!-- Upload progress when files is empty -->
+            <div class="row g-3" *ngIf="activeFolder() && files().length === 0 && uploading()">
+              <div class="col-12">
+                <div class="alert alert-info py-2 px-3 d-flex align-items-center gap-3">
+                  <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                  <span style="font-size: 0.85rem;" class="fw-semibold">Uploading and processing files, please wait...</span>
+                </div>
               </div>
             </div>
+
+            <app-loader 
+              [loading]="loading()" 
+              [isEmpty]="!loading() && !errorMessage() && activeFolder() && files().length === 0" 
+              [error]="errorMessage()" 
+              (retry)="loadExplorer()"
+              emptyMessage="This directory is empty. Drag & drop images or files here, or click the Upload button.">
+            </app-loader>
           </div>
         </div>
       </div>
@@ -256,26 +270,37 @@ export class FileManagerComponent implements OnInit {
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
 
+  loading = signal<boolean>(false);
+
   ngOnInit() {
     this.loadExplorer();
   }
 
   loadExplorer(activeFolderId?: number) {
+    this.loading.set(true);
+    this.errorMessage.set(null);
     const params: any = {};
     if (activeFolderId) params.folder_id = activeFolderId;
     else if (this.activeFolder()) params.folder_id = this.activeFolder().id;
 
-    this.api.get('file-manager', params).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.folders.set(res.folders);
-          this.activeFolder.set(res.activeFolder);
-          this.files.set(res.files);
-          this.selectedFileIds.clear(); // Reset bulk selection
+    this.api.get('file-manager', params)
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.folders.set(res.folders);
+            this.activeFolder.set(res.activeFolder);
+            this.files.set(res.files);
+            this.selectedFileIds.clear(); // Reset bulk selection
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load explorer.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load explorer:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load explorer.');
         }
-      },
-      error: (err) => console.error('Failed to load explorer:', err)
-    });
+      });
   }
 
   selectFolder(id: number) {

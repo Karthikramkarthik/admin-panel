@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../services/api.service';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
+import { finalize } from 'rxjs';
 
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, RouterLink, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -168,7 +170,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Orders Grid -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -182,7 +184,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="orders().length > 0">
               <tr *ngFor="let order of orders()">
                 <td class="fw-bold text-primary">{{ order.order_number }}</td>
                 <td>
@@ -206,12 +208,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="orders().length === 0">
-                <td colspan="7" class="text-center text-muted py-4">No e-commerce orders found matching the filter criteria.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && orders().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadOrders()"
+          emptyMessage="No e-commerce orders found matching the filter criteria.">
+        </app-loader>
       </div>
 
       <!-- Details Drawer/Modal -->
@@ -361,6 +367,7 @@ export class OrdersComponent implements OnInit {
   orders = signal<any[]>([]);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
   modalOpen = signal<boolean>(false);
   activeOrder = signal<any | null>(null);
 
@@ -385,23 +392,31 @@ export class OrdersComponent implements OnInit {
   }
 
   loadOrders() {
+    this.loading.set(true);
+    this.errorMessage.set(null);
     const params: any = {};
     if (this.searchQuery) params.q = this.searchQuery;
     if (this.statusFilter) params.status = this.statusFilter;
     if (this.startDate) params.startDate = this.startDate;
     if (this.endDate) params.endDate = this.endDate;
 
-    this.api.get('admin/orders', params).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.orders.set(res.orders);
+    this.api.get('admin/orders', params)
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.orders.set(res.orders);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to retrieve e-commerce orders.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load orders:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to retrieve e-commerce orders.');
         }
-      },
-      error: (err) => {
-        console.error('Failed to load orders:', err);
-        this.errorMessage.set('Failed to retrieve e-commerce orders.');
-      }
-    });
+      });
 
     this.loadSummary();
   }

@@ -5,14 +5,15 @@ import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { PurchaseModalService } from '../../services/purchase-modal.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-purchases',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -69,7 +70,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Purchases List Grid -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden mb-4">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden mb-4 position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -85,7 +86,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="purchases().length > 0">
               <tr *ngFor="let pur of purchases()">
                 <td class="fw-bold text-primary">{{ pur.invoice_number }}</td>
                 <td>{{ pur.supplier_name }}</td>
@@ -112,12 +113,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="purchases().length === 0">
-                <td [attr.colspan]="isAuthorizedForAudit() ? 9 : 6" class="text-center text-muted py-4">No logged purchases found. Click Add Purchase to add.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && purchases().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadPurchases()"
+          emptyMessage="No logged purchases found. Click Add Purchase to add.">
+        </app-loader>
       </div>
     </div>
   `
@@ -191,6 +196,7 @@ export class PurchasesComponent implements OnInit, OnDestroy {
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   private sub: Subscription | null = null;
 
@@ -211,12 +217,25 @@ export class PurchasesComponent implements OnInit, OnDestroy {
   }
 
   loadPurchases() {
-    this.api.get('purchases').subscribe({
-      next: (res) => {
-        if (res.success) this.rawPurchases.set(res.purchases);
-      },
-      error: (err) => console.error('Failed to load purchases:', err)
-    });
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('purchases')
+      .pipe(
+        finalize(() => this.loading.set(false))
+      )
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.rawPurchases.set(res.purchases);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load purchases.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load purchases:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load purchases.');
+        }
+      });
   }
 
   toggleAuditFilters() {

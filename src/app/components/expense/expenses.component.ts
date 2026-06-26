@@ -5,13 +5,14 @@ import { ApiService } from '../../services/api.service';
 import { UnsavedChangesService } from '../../services/unsaved-changes.service';
 import { ExpenseModalService } from '../../services/expense-modal.service';
 import { AuthService } from '../../services/auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 import { HasPermissionDirective } from '../../directives/has-permission.directive';
+import { LoaderComponent } from '../loader/loader.component';
 
 @Component({
   selector: 'app-expenses',
   standalone: true,
-  imports: [CommonModule, FormsModule, HasPermissionDirective],
+  imports: [CommonModule, FormsModule, HasPermissionDirective, LoaderComponent],
   template: `
     <div class="animate-fade-in h-100">
       <div class="d-flex justify-content-between align-items-center mb-4">
@@ -84,7 +85,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
       </div>
 
       <!-- Expenses Grid -->
-      <div class="card glass-card border-0 shadow-sm overflow-hidden">
+      <div class="card glass-card border-0 shadow-sm overflow-hidden position-relative" style="min-height: 200px;">
         <div class="table-responsive">
           <table class="custom-table m-0">
             <thead>
@@ -100,7 +101,7 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody *ngIf="expenses().length > 0">
               <tr *ngFor="let exp of expenses()">
                 <td class="fw-semibold">{{ exp.title }}</td>
                 <td><span class="badge bg-light text-muted border">{{ exp.category || 'Other' }}</span></td>
@@ -119,12 +120,16 @@ import { HasPermissionDirective } from '../../directives/has-permission.directiv
                   </button>
                 </td>
               </tr>
-              <tr *ngIf="expenses().length === 0">
-                <td [attr.colspan]="isAuthorizedForAudit() ? 9 : 6" class="text-center text-muted py-4">No recorded expenses found. Click Record Expense.</td>
-              </tr>
             </tbody>
           </table>
         </div>
+        <app-loader 
+          [loading]="loading()" 
+          [isEmpty]="!loading() && !errorMessage() && expenses().length === 0" 
+          [error]="errorMessage()" 
+          (retry)="loadExpenses()"
+          emptyMessage="No recorded expenses found. Click Record Expense.">
+        </app-loader>
       </div>
     </div>
   `
@@ -200,6 +205,7 @@ export class ExpensesComponent implements OnInit, OnDestroy {
 
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null);
+  loading = signal<boolean>(false);
 
   private sub: Subscription | null = null;
 
@@ -220,14 +226,23 @@ export class ExpensesComponent implements OnInit, OnDestroy {
   }
 
   loadExpenses() {
-    this.api.get('expenses').subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.rawExpenses.set(res.expenses);
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.api.get('expenses')
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: (res) => {
+          if (res.success) {
+            this.rawExpenses.set(res.expenses);
+          } else {
+            this.errorMessage.set(res.message || 'Failed to load expenses.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to load expenses:', err);
+          this.errorMessage.set(err.error?.error || 'Failed to load expenses.');
         }
-      },
-      error: (err) => console.error('Failed to load expenses:', err)
-    });
+      });
   }
 
   toggleAuditFilters() {

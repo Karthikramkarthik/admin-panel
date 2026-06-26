@@ -100,8 +100,18 @@ declare var Chart: any;
         </li>
       </ul>
 
+      <!-- Error State -->
+      <div class="alert alert-danger border-0 p-4 rounded shadow-sm text-center mb-4" *ngIf="errorMessage() && !loaderService.reportsLoading()">
+        <i class="fas fa-exclamation-triangle fs-3 text-danger mb-3 d-block"></i>
+        <h5 class="fw-bold">Failed to Load Reports</h5>
+        <p class="text-muted">{{ errorMessage() }}</p>
+        <button class="btn btn-primary btn-sm mt-2 px-4" (click)="loadReportData()">
+          <i class="fas fa-sync-alt me-2"></i>Retry Loading
+        </button>
+      </div>
+
       <!-- Content Area -->
-      <div class="tab-content" *ngIf="!loaderService.reportsLoading()">
+      <div class="tab-content" *ngIf="!loaderService.reportsLoading() && !errorMessage()">
         
         <!-- Tab 1: Financial Analytics -->
         <div *ngIf="activeTab === 'financials'" class="tab-pane fade show active">
@@ -937,6 +947,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
   @ViewChild('supplierShareCanvas') supplierShareCanvas?: ElementRef;
   @ViewChild('expenseCategoriesCanvas') expenseCategoriesCanvas?: ElementRef;
 
+  errorMessage = signal<string | null>(null);
   selectedYear = '2026';
   activeTab = 'financials';
   totals = signal<any>(null);
@@ -1002,6 +1013,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
       this.loadCustomerReportData();
       return;
     }
+    this.errorMessage.set(null);
     this.api.get('reports', { year: this.selectedYear }).subscribe({
       next: (res) => {
         if (res.success) {
@@ -1012,9 +1024,14 @@ export class ReportsComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.renderTabCharts(this.activeTab);
           }, 60);
+        } else {
+          this.errorMessage.set(res.message || 'Failed to load report data.');
         }
       },
-      error: (err) => console.error('Failed to load reports:', err)
+      error: (err) => {
+        console.error('Failed to load reports:', err);
+        this.errorMessage.set(err.error?.error || 'Failed to load report data.');
+      }
     });
   }
 
@@ -1030,6 +1047,7 @@ export class ReportsComponent implements OnInit, OnDestroy {
   }
 
   loadCustomerReportData() {
+    this.errorMessage.set(null);
     const params: any = {
       page: this.customerPagination.page.toString(),
       limit: this.customerPagination.limit.toString()
@@ -1045,9 +1063,14 @@ export class ReportsComponent implements OnInit, OnDestroy {
           this.customersList.set(res.customers || []);
           this.customerReportSummary = res.summary || { totalCustomers: 0, totalRevenue: 0 };
           this.customerPagination.totalCustomers = res.pagination.totalCustomers || 0;
+        } else {
+          this.errorMessage.set(res.message || 'Failed to load customer purchases report.');
         }
       },
-      error: (err) => console.error('Failed to load customer report:', err)
+      error: (err) => {
+        console.error('Failed to load customer report:', err);
+        this.errorMessage.set(err.error?.error || 'Failed to load customer purchases report.');
+      }
     });
   }
 
