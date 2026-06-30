@@ -25,7 +25,7 @@ declare var anychart: any; // Use global AnyChart from CDN to avoid bundler issu
       <!-- Dashboard Skeleton Loader -->
       <div class="animate-fade-in" *ngIf="loaderService.dashboardLoading()">
         <div class="row g-3 mb-4">
-          <div class="col-xl-3 col-md-6 col-6" *ngFor="let item of [1,2,3,4,5,6,7,8]">
+          <div class="col-xl-3 col-md-6 col-6" *ngFor="let item of [1,2,3,4,5,6,7,8,9,10,11,12,13]">
             <div class="card glass-card stat-card border-0 p-3">
               <div class="d-flex align-items-center gap-2 mb-2">
                 <div class="skeleton-loader skeleton-circle" style="width: 32px; height: 32px; flex-shrink: 0;"></div>
