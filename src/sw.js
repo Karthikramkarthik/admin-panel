@@ -51,8 +51,30 @@ self.addEventListener('fetch', event => {
     return; // Let the browser fetch directly from network
   }
 
-  // API Requests: Network-first strategy (always fetch fresh data, cache as backup)
-  if (requestUrl.pathname.includes('/api/')) {
+  // HTML/Navigation requests: Network-First strategy (always fetch latest, fallback to cache if offline)
+  const isNavigation = event.request.mode === 'navigate' || 
+                       requestUrl.pathname === '/' || 
+                       requestUrl.pathname.endsWith('.html') || 
+                       requestUrl.pathname.includes('index.html');
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.status === 200 && event.request.method === 'GET') {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+  } else if (requestUrl.pathname.includes('/api/')) {
+    // API Requests: Network-first strategy (always fetch fresh data, cache as backup)
     event.respondWith(
       fetch(event.request)
         .then(response => {

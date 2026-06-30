@@ -1,3 +1,13 @@
-<router-outlet></router-outlet>
-
-<app-toast></app-toast>
+@if (isLoading()) {
+  <div class="global-initial-loader">
+    <div class="loader-box-app">
+      <img src="assets/logo.jpg" alt="Logo" class="loader-logo-app" onerror="this.style.display='none'">
+      <div class="spinner-ring-app"></div>
+      <h3 class="loader-text-app">Stock Manager</h3>
+      <p class="loader-subtext-app">Checking permissions & loading session...</p>
+    </div>
+  </div>
+} @else {
+  <router-outlet></router-outlet>
+  <app-toast></app-toast>
+}

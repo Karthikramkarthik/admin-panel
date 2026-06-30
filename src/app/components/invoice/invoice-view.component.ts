@@ -287,7 +287,7 @@ import { AuthService } from '../../services/auth.service';
               <span><strong>Invoice Ref:</strong></span>
               <span>
                 {{ invoice().invoice_number }}
-                <span class="badge text-white ms-1" 
+                <!-- <span class="badge text-white ms-1" 
                       [class.bg-warning]="invoice().status === 'Generated' || !invoice().status" 
                       [class.bg-success]="invoice().status === 'Sent'"
                       [class.bg-danger]="invoice().status === 'Cancelled'"
@@ -295,7 +295,7 @@ import { AuthService } from '../../services/auth.service';
                       [class.bg-info]="invoice().status === 'Superseded'"
                       style="font-size: 0.62rem; padding: 2px 5px;">
                   {{ invoice().status || 'Generated' }}
-                </span>
+                </span> -->
               </span>
             </div>
             <div class="d-flex justify-content-between mb-1">
@@ -310,7 +310,7 @@ import { AuthService } from '../../services/auth.service';
               <span><strong>Mobile:</strong></span>
               <span>{{ invoice().customer_mobile }}</span>
             </div>
-            <div class="d-flex justify-content-between mb-1">
+            <!-- <div class="d-flex justify-content-between mb-1">
               <span><strong>Payment Status:</strong></span>
               <span>
                 <span class="badge text-white" 
@@ -323,10 +323,10 @@ import { AuthService } from '../../services/auth.service';
                   ({{ invoice().payment_method || 'Cash' }})
                 </span>
               </span>
-            </div>
+            </div> -->
           </div>
 
-          <div class="divider-dashed mb-2"></div>
+          <!-- <div class="divider-dashed mb-2"></div> -->
 
           <!-- Product Table -->
           <table class="thermal-table" style="width: 100%; font-size: 0.72rem; border-collapse: collapse; margin-top: 6px;">
@@ -390,13 +390,13 @@ import { AuthService } from '../../services/auth.service';
             </div>
             
             <!-- UPI QR Code for pending payment -->
-            <div class="mt-2" *ngIf="invoice().payment_status === 'Pending' || !invoice().payment_status">
+            <!-- <div class="mt-2" *ngIf="invoice().payment_status === 'Pending' || !invoice().payment_status">
               <div style="font-size: 0.6rem; font-weight: bold; color: #555; margin-bottom: 4px; text-transform: uppercase;">Scan to Pay via UPI</div>
               <img [src]="'https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=' + getUpiUrl()" 
                    alt="UPI QR Code" 
                    style="width: 100px; height: 100px; object-fit: contain; border: 1px solid #ddd; padding: 4px; border-radius: 4px; background: #fff; margin: 0 auto; display: block;">
               <div style="font-size: 0.55rem; color: #666; margin-top: 4px;">Merchant: KP Colony | Ph: 6381659782</div>
-            </div>
+            </div> -->
           </div>
 
           <div class="text-center text-muted" style="font-size: 0.7rem; line-height: 1.3; margin-top: 8px;">
@@ -571,7 +571,7 @@ export class InvoiceViewComponent implements OnInit {
   getUpiUrl(): string {
     const inv = this.invoice();
     if (!inv) return '';
-    const pa = '6381659782@ybl';
+    const pa = 'ramkarthik245-4@okhdfcbank';
     const pn = 'KP Colony';
     const am = Number(inv.grand_total).toFixed(2);
     const tn = inv.invoice_number;

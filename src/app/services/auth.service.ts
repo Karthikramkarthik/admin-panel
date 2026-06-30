@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, BehaviorSubject } from 'rxjs';
+import { Observable, tap, BehaviorSubject, timeout, catchError, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -17,22 +17,53 @@ export class AuthService {
   currentUserPermissions = signal<string[]>([]);
   permissionsLoaded$ = new BehaviorSubject<boolean>(false);
 
-  constructor(private http: HttpClient, private router: Router) {
-    this.loadStorage();
-  }
+  constructor(private http: HttpClient, private router: Router) {}
 
-  private loadStorage() {
-    const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+  init(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const savedToken = localStorage.getItem('token');
+      const savedUser = localStorage.getItem('user');
 
-    if (savedToken && savedUser) {
-      this.token.set(savedToken);
-      this.currentUser.set(JSON.parse(savedUser));
-      this.isAuthenticated.set(true);
-      this.loadPermissions();
-    } else {
-      this.permissionsLoaded$.next(true);
-    }
+      if (savedToken && savedUser) {
+        this.token.set(savedToken);
+        this.currentUser.set(JSON.parse(savedUser));
+        this.isAuthenticated.set(true);
+
+        this.http.get<any>(`${this.apiUrl}/permissions`).pipe(
+          timeout(10000), // 10 seconds timeout
+          catchError((err) => {
+            console.error('Failed to load user permissions on init:', err);
+            if (err.status === 401 || err.status === 403) {
+              this.clearAuthData();
+            }
+            return of({ success: false, permissions: [] });
+          })
+        ).subscribe({
+          next: (res) => {
+            if (res.success && res.permissions) {
+              this.currentUserPermissions.set(res.permissions);
+              
+              const user = this.currentUser();
+              if (user && res.role && (user.role !== res.role || user.roleId !== res.roleId)) {
+                user.role = res.role;
+                user.roleId = res.roleId;
+                this.currentUser.set({ ...user });
+                localStorage.setItem('user', JSON.stringify(user));
+              }
+            }
+            this.permissionsLoaded$.next(true);
+            resolve();
+          },
+          error: () => {
+            this.permissionsLoaded$.next(true);
+            resolve();
+          }
+        });
+      } else {
+        this.permissionsLoaded$.next(true);
+        resolve();
+      }
+    });
   }
 
   register(userData: any): Observable<any> {
@@ -61,12 +92,20 @@ export class AuthService {
       this.permissionsLoaded$.next(true);
       return;
     }
-    this.http.get<any>(`${this.apiUrl}/permissions`).subscribe({
+    this.http.get<any>(`${this.apiUrl}/permissions`).pipe(
+      timeout(10000), // 10 seconds timeout
+      catchError((err) => {
+        console.error('Permissions API failed or timed out:', err);
+        if (err.status === 401 || err.status === 403) {
+          this.clearAuthData();
+        }
+        return of({ success: false, permissions: [] });
+      })
+    ).subscribe({
       next: (res) => {
         if (res.success && res.permissions) {
           this.currentUserPermissions.set(res.permissions);
           
-          // Update the current user role dynamically if it changed in the database
           const user = this.currentUser();
           if (user && res.role && (user.role !== res.role || user.roleId !== res.roleId)) {
             user.role = res.role;
@@ -77,8 +116,7 @@ export class AuthService {
         }
         this.permissionsLoaded$.next(true);
       },
-      error: (err) => {
-        console.error('Failed to load user permissions:', err);
+      error: () => {
         this.permissionsLoaded$.next(true);
       }
     });
@@ -102,7 +140,7 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/change-password`, data);
   }
 
-  logout() {
+  clearAuthData() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     
@@ -110,6 +148,10 @@ export class AuthService {
     this.currentUser.set(null);
     this.isAuthenticated.set(false);
     this.currentUserPermissions.set([]);
+  }
+
+  logout() {
+    this.clearAuthData();
     this.permissionsLoaded$.next(false);
     
     this.router.navigate(['/auth/login']);

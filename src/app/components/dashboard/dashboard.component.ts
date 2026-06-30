@@ -708,7 +708,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     // Left Y-Axis (Index 0) -> Sales
     const leftAxis = chart.yAxis(0);
     leftAxis.title('Sales Amount (₹)');
-    leftAxis.labels().format(function(this: any) {
+    leftAxis.labels().format(function (this: any) {
       return '₹' + this.value.toLocaleString();
     });
 
@@ -720,7 +720,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     rightAxis.orientation('right');
     rightAxis.title('Profit Amount (₹)');
     rightAxis.scale(profitScale);
-    rightAxis.labels().format(function(this: any) {
+    rightAxis.labels().format(function (this: any) {
       return '₹' + this.value.toLocaleString();
     });
 
@@ -746,7 +746,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Styling and theme styling based on dark mode status
     chart.background().fill('none'); // Transparent container for glassmorphism
-    
+
     const textColor = isDarkMode ? '#cbd5e1' : '#475569';
     const gridColor = isDarkMode ? 'rgba(51, 65, 85, 0.5)' : 'rgba(226, 232, 240, 0.5)';
     const axisColor = isDarkMode ? '#475569' : '#cbd5e1';

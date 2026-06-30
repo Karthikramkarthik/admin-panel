@@ -24,7 +24,8 @@
               "src/favicon.ico",
               "src/assets",
               "src/manifest.json",
-              "src/sw.js"
+              "src/sw.js",
+              "src/.htaccess"
             ],
             "styles": [
               "src/styles.css"
