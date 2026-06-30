@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api.service';
 import { LoaderService } from '../../services/loader.service';
@@ -630,7 +630,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  lastChartData: any = null;
+
+  @HostListener('window:theme-change')
+  onThemeChange() {
+    if (this.lastChartData) {
+      this.buildChart(this.lastChartData);
+    }
+  }
+
   initChart(chartData: any) {
+    this.lastChartData = chartData;
     if (typeof (window as any).anychart === 'undefined') {
       const script = document.createElement('script');
       script.src = 'https://cdn.anychart.com/releases/8.11.0/js/anychart-base.min.js';

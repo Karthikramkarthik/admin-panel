@@ -280,9 +280,15 @@ import { ProductPurchaseHistoryModalService } from '../../services/product-purch
               </div>
 
               <!-- Dark Mode toggle -->
-              <!-- <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width: 38px; height: 38px;" (click)="toggleDarkMode()">
-                <i class="fas" [class.fa-sun]="darkMode()" [class.fa-moon]="!darkMode()"></i>
-              </button> -->
+              <button 
+                class="btn btn-sm btn-outline-secondary rounded-circle theme-toggle-btn" 
+                style="width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; transition: var(--transition-smooth);" 
+                (click)="toggleDarkMode()"
+                title="Toggle Light/Dark Mode"
+                type="button"
+              >
+                <i class="fas" [class.fa-sun]="darkMode()" [class.fa-moon]="!darkMode()" [class.text-warning]="darkMode()" [class.text-secondary]="!darkMode()" style="font-size: 1.1rem; transition: var(--transition-smooth);"></i>
+              </button>
               
               <!-- User Dropdown -->
               <div class="dropdown">
@@ -534,18 +540,34 @@ export class LayoutComponent implements OnInit, OnDestroy {
   private searchTimeout: any = null;
 
   constructor() {
-    // Effect to apply dark mode to document body dynamically
+    // Effect to apply dark mode to document body dynamically and update localStorage
     effect(() => {
-      if (this.darkMode()) {
-        document.body.classList.add('dark-mode');
-      } else {
-        document.body.classList.remove('dark-mode');
+      const isDark = this.darkMode();
+      if (typeof document !== 'undefined') {
+        if (isDark) {
+          document.body.classList.add('dark-mode');
+          localStorage.setItem('theme', 'dark');
+          localStorage.setItem('darkMode', 'true');
+        } else {
+          document.body.classList.remove('dark-mode');
+          localStorage.setItem('theme', 'light');
+          localStorage.setItem('darkMode', 'false');
+        }
       }
     });
 
-    // Check system preference on init
-    const savedDark = localStorage.getItem('darkMode') === 'true';
-    this.darkMode.set(savedDark);
+    // Check system and saved preference on init
+    const savedTheme = localStorage.getItem('theme');
+    const savedDark = localStorage.getItem('darkMode');
+    let isDark = false;
+    if (savedTheme) {
+      isDark = savedTheme === 'dark';
+    } else if (savedDark) {
+      isDark = savedDark === 'true';
+    } else if (typeof window !== 'undefined') {
+      isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    this.darkMode.set(isDark);
 
     // Auto-collapse sidebar on mobile after navigation
     this.router.events.subscribe(() => {
@@ -553,6 +575,13 @@ export class LayoutComponent implements OnInit, OnDestroy {
         this.sidebarCollapsed.set(true);
       }
     });
+  }
+
+  toggleDarkMode() {
+    this.darkMode.update(val => !val);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('theme-change'));
+    }
   }
 
   private tableObserver: MutationObserver | null = null;
@@ -850,14 +879,6 @@ export class LayoutComponent implements OnInit, OnDestroy {
 
   toggleSidebar() {
     this.sidebarCollapsed.update(v => !v);
-  }
-
-  toggleDarkMode() {
-    this.darkMode.update(v => {
-      const next = !v;
-      localStorage.setItem('darkMode', String(next));
-      return next;
-    });
   }
 
   onLogout() {

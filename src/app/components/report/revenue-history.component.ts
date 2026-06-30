@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -354,7 +354,17 @@ export class RevenueHistoryComponent implements OnInit, OnDestroy {
       });
   }
 
+  lastChartData: any[] = [];
+
+  @HostListener('window:theme-change')
+  onThemeChange() {
+    if (this.lastChartData && this.lastChartData.length > 0) {
+      this.buildChart(this.lastChartData);
+    }
+  }
+
   initChart(data: any[]) {
+    this.lastChartData = data;
     this.destroyChart();
 
     if (typeof (window as any).anychart === 'undefined') {
